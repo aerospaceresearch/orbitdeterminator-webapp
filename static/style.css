@@ -1,0 +1,30 @@
+html {
+    padding: 0 1em;
+}
+
+._dash-undo-redo {
+  display: none;
+}
+
+#logo {
+    float: right;
+    max-height: 5em;
+}
+
+#subtitle {
+    margin-top: -0.5em;
+    margin-bottom: 3em;
+}
+
+#upload-box {
+    margin: 0.7em 0;
+    padding: 1em;
+    border: dashed 1px;
+    border-radius: 5px;
+    text-align: center;
+}
+
+.section-titles {
+    font-weight: bold;
+    padding: 0.5em;
+}
