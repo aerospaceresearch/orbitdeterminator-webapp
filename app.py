@@ -12,9 +12,7 @@ from io import StringIO
 import sys
 import os.path
 
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__),os.path.pardir,'orbitdeterminator')))
-
-from kep_determination.ellipse_fit import determine_kep
+import orbitdeterminator.kep_determination.ellipse_fit as e_fit
 
 app = dash.Dash()
 
@@ -72,7 +70,7 @@ def display_file(file_content, file_name):
     data = parse_file(file_content)
     if (data.shape[0] > 0):
         data_dict = [{'No.':'{:03d}'.format(i+1), 't':data[i][0], 'x':data[i][1], 'y':data[i][2], 'z':data[i][3]} for i in range(data.shape[0])]
-        kep, res = determine_kep(data[:,1:])
+        kep, res = e_fit.determine_kep(data[:,1:])
         
         return [html.Div(children=file_name, className='section-titles'),
             
