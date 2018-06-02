@@ -24,7 +24,14 @@ html {
     text-align: center;
 }
 
-.section-titles {
+summary {
+    border-bottom: solid 1px #ddd;
+    padding: 0.1em 0.3em;
+    outline: none;
     font-weight: bold;
-    padding: 0.5em;
+}
+
+details {
+    margin: 0.3em 0;
+    border: solid 1px #ddd;
 }

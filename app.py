@@ -72,37 +72,46 @@ def display_file(file_content, file_name):
         data_dict = [{'No.':'{:03d}'.format(i+1), 't':data[i][0], 'x':data[i][1], 'y':data[i][2], 'z':data[i][3]} for i in range(data.shape[0])]
         kep, res = e_fit.determine_kep(data[:,1:])
         
-        return [html.Div(children=file_name, className='section-titles'),
-            
-            dt.DataTable(rows=data_dict,editable=False),
-            
-            html.Div(children='Computed Keplerian Elements', className='section-titles'),
+        return [
+            dcc.Markdown('''File Name: **'''+file_name+'''**'''),
 
-            dt.DataTable(rows=[
-                {'Element':'Semi-major Axis',
-                 'Value'            :str(kep[0][0])},
-                {'Element':'Eccentricity',
-                 'Value'            :str(kep[1][0])},
-                {'Element':'Inclination',
-                 'Value'            :str(kep[2][0])},
-                {'Element':'Argument of Periapsis',
-                 'Value'            :str(kep[3][0])},
-                {'Element':'Right Ascension of Ascending Node',
-                 'Value'            :str(kep[4][0])},
-                {'Element':'True Anomaly',
-                 'Value'            :str(kep[5][0])},
-                ],editable=False),
+            html.Details([
+                    html.Summary('''File Contents'''),
+                    dt.DataTable(rows=data_dict,editable=False)
+            ]),
             
-            dcc.Graph(id='orbit-plot',
-                figure={
-                    'data':[{'x':data[:,1],'y':data[:,2],'z':data[:,3],'mode':'markers','type':'scatter3d','marker':{
-                        'size':2,
-                        'opacity':0.8
-                        }}],
-                    'layout':{
-                        'height': 600
+            html.Details([
+                html.Summary('''Computed Keplerian Elements'''),
+                dt.DataTable(rows=[
+                    {'Element':'Semi-major Axis',
+                     'Value'            :str(kep[0][0])},
+                    {'Element':'Eccentricity',
+                     'Value'            :str(kep[1][0])},
+                    {'Element':'Inclination',
+                     'Value'            :str(kep[2][0])},
+                    {'Element':'Argument of Periapsis',
+                     'Value'            :str(kep[3][0])},
+                    {'Element':'Right Ascension of Ascending Node',
+                     'Value'            :str(kep[4][0])},
+                    {'Element':'True Anomaly',
+                     'Value'            :str(kep[5][0])},
+                    ],editable=False)
+            ],open=True),
+            
+            html.Details([
+                html.Summary('''3D Plot'''),
+                dcc.Graph(id='orbit-plot',
+                    figure={
+                        'data':[{'x':data[:,1],'y':data[:,2],'z':data[:,3],'mode':'lines','type':'scatter3d','line':{
+                            'width':5,
+                            }}],
+                        'layout':{
+                            'height': 500,
                         }
-                    })]
+                    }
+                )
+            ],open=True)
+        ]
     else:
         return html.Div('''There was an error processing this file.''')
 
