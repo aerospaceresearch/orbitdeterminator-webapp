@@ -4,9 +4,14 @@ import dash_html_components as html
 from dash.dependencies import Input, Output
 import dash_table_experiments as dt
 
+from plotly import tools
+import plotly.plotly as py
+import plotly.graph_objs as go
+
 import numpy as np
 import flask
 
+import math
 import base64
 from io import StringIO
 import sys
@@ -51,12 +56,44 @@ def parse_file(file_content):
     try:
         file_content = file_content.split(',')[1]
         decoded = base64.b64decode(file_content).decode('ascii')
-        _data = np.loadtxt(StringIO(decoded),skiprows=1)
-        assert(_data.shape[1] == 4)
-        return _data
+        data = np.loadtxt(StringIO(decoded),skiprows=1)
+        assert(data.shape[1] == 4)
+        return data
     except Exception as e:
         print(e)
         return np.empty((0,4))
+
+def gen_points(kep):
+    a = kep[0]
+    e = kep[1]
+    inc = math.radians(kep[2])
+    t0 = math.radians(kep[3])
+    lan = math.radians(kep[4])
+
+    p_x = np.array([math.cos(lan), math.sin(lan), 0])
+    p_y = np.array([-math.sin(lan)*math.cos(inc), math.cos(lan)*math.cos(inc), math.sin(inc)])
+
+    # generate 1000 points on the ellipse
+    theta = np.linspace(0,2*math.pi,1000)
+    radii = a*(1-e**2)/(1+e*np.cos(theta-t0))
+
+    # convert to cartesian
+    x_s = np.multiply(radii,np.cos(theta))
+    y_s = np.multiply(radii,np.sin(theta))
+
+    # convert to 3D
+    mat = np.column_stack((p_x,p_y))
+    coords_3D = np.matmul(mat,[x_s,y_s])
+
+    return np.transpose(coords_3D)
+
+def gen_sphere():
+    RADIUS = 6371
+    u, v = np.mgrid[0:2*np.pi:20j, 0:np.pi/2:10j]
+    x = (RADIUS*np.cos(u)*np.sin(v)).flatten()
+    y = (RADIUS*np.sin(u)*np.sin(v)).flatten()
+    z = (RADIUS*np.cos(v)).flatten()
+    return x,y,z
 
 @app.callback(Output('output-div','children'),
               [Input('file-upload','contents'),
@@ -65,12 +102,149 @@ def parse_file(file_content):
 def display_file(file_content, file_name):
 
     if file_content is None:
-        return html.Div(['Choose a file to display its contents.'])
+        return html.Div(['Choose a file to process it.'])
 
     data = parse_file(file_content)
     if (data.shape[0] > 0):
         data_dict = [{'No.':'{:03d}'.format(i+1), 't':data[i][0], 'x':data[i][1], 'y':data[i][2], 'z':data[i][3]} for i in range(data.shape[0])]
         kep, res = e_fit.determine_kep(data[:,1:])
+
+        # Visuals
+        orbit_points = gen_points(kep)
+        earth_points = gen_sphere()
+
+        xyz_org = go.Scatter3d(
+            name = 'Original Data',
+            legendgroup = 'org',
+            showlegend = False,
+            x = data[:,1],
+            y = data[:,2],
+            z = data[:,3],
+            mode = 'markers',
+            marker = {'size': 1, 'color':'black'}
+        )
+
+        xyz_fit = go.Scatter3d(
+            name = 'Fitted Ellipse',
+            legendgroup = 'fit',
+            showlegend = False,
+            x = orbit_points[:,0],
+            y = orbit_points[:,1],
+            z = orbit_points[:,2],
+            mode = 'lines',
+            line = {'width':5, 'color':'red'}
+        )
+
+        earth_top = go.Mesh3d(
+            x = earth_points[0],
+            y = earth_points[1],
+            z = earth_points[2],
+            color = 'blue',
+            opacity = 0.5,
+            hoverinfo = 'skip',
+            showlegend = False
+        )
+
+        earth_bottom = go.Mesh3d(
+            x = earth_points[0],
+            y = earth_points[1],
+            z = -earth_points[2],
+            color = 'blue',
+            opacity = 0.5,
+            hoverinfo = 'skip',
+            showlegend = False
+        )
+
+        xy_org = go.Scatter(
+            name = 'Original Data',
+            legendgroup = 'org',
+            showlegend = True,
+            x = data[:,1],
+            y = data[:,2],
+            mode = 'markers',
+            marker = {'size': 2, 'color':'black'}
+        )
+
+        xy_fit = go.Scatter(
+            name = 'Fitted Ellipse',
+            legendgroup = 'fit',
+            showlegend = True,
+            x = orbit_points[:,0],
+            y = orbit_points[:,1],
+            mode = 'lines',
+            line = {'width':2, 'color':'red'}
+        )
+        
+        yz_org = go.Scatter(
+            name = 'Original Data',
+            legendgroup = 'org',
+            showlegend = False,
+            x = data[:,2],
+            y = data[:,3],
+            mode = 'markers',
+            marker = {'size': 2, 'color':'black'}
+        )
+
+        yz_fit = go.Scatter(
+            name = 'Fitted Ellipse',
+            legendgroup = 'fit',
+            showlegend = False,
+            x = orbit_points[:,1],
+            y = orbit_points[:,2],
+            mode = 'lines',
+            line = {'width':2, 'color':'red'}
+        )
+        
+        xz_org = go.Scatter(
+            name = 'Original Data',
+            legendgroup = 'org',
+            showlegend = False,
+            x = data[:,1],
+            y = data[:,3],
+            mode = 'markers',
+            marker = {'size': 2, 'color':'black'}
+        )
+
+        xz_fit = go.Scatter(
+            name = 'Fitted Ellipse',
+            legendgroup = 'fit',
+            showlegend = False,
+            x = orbit_points[:,0],
+            y = orbit_points[:,2],
+            mode = 'lines',
+            line = {'width':2, 'color':'red'}
+        )
+
+        fig = tools.make_subplots(rows=2,cols=2,specs=[[{},{}],
+                                                       [{},{'is_3d':True}]])
+        fig.append_trace(xz_org,1,1)
+        fig.append_trace(xz_fit,1,1)
+        fig.append_trace(yz_org,1,2)
+        fig.append_trace(yz_fit,1,2)
+        fig.append_trace(xy_org,2,1)
+        fig.append_trace(xy_fit,2,1)
+        fig.append_trace(xyz_org,2,2)
+        fig.append_trace(xyz_fit,2,2)
+        fig.append_trace(earth_top,2,2)
+        fig.append_trace(earth_bottom,2,2)
+
+        fig['layout']['yaxis1'].update(scaleanchor='x',scaleratio=1)
+        fig['layout']['yaxis2'].update(scaleanchor='x2',scaleratio=1)
+        fig['layout']['yaxis3'].update(scaleanchor='x3',scaleratio=1)
+        fig['layout']['xaxis1'].update(title='x')
+        fig['layout']['yaxis1'].update(title='z')
+        fig['layout']['xaxis2'].update(title='y')
+        fig['layout']['yaxis2'].update(title='z')
+        fig['layout']['xaxis3'].update(title='x')
+        fig['layout']['yaxis3'].update(title='y')
+
+        fig['layout']['scene1']['xaxis'].update(showticklabels=True, showspikes=False)
+        fig['layout']['scene1']['yaxis'].update(showticklabels=True, showspikes=False)
+        fig['layout']['scene1']['zaxis'].update(showticklabels=True, showspikes=False)
+        
+        fig['layout'].update(height=700, margin={'t':50})
+        fig['layout']['legend'].update(orientation='h')
+        
         
         return [
             dcc.Markdown('''File Name: **'''+file_name+'''**'''),
@@ -99,18 +273,8 @@ def display_file(file_content, file_name):
             ],open=True),
             
             html.Details([
-                html.Summary('''3D Plot'''),
-                dcc.Graph(id='orbit-plot',
-                    figure={
-                        'data':[{'x':data[:,1],'y':data[:,2],'z':data[:,3],'mode':'lines','type':'scatter3d','line':{
-                            'width':5,
-                            }}],
-                        'layout':{
-                            'height': 500,
-                        }
-                    }
-                )
-            ],open=True)
+                html.Summary('''XYZ Plots'''),
+                dcc.Graph(id='orbit-plot', figure=fig)],open=True)
         ]
     else:
         return html.Div('''There was an error processing this file.''')
