@@ -162,7 +162,7 @@ def display_file(file_content, file_name):
             x = data[:,1],
             y = data[:,2],
             mode = 'markers',
-            marker = {'size': 2, 'color':'black'}
+            marker = {'size': 5, 'color':'black'}
         )
 
         xy_fit = go.Scatter(
@@ -182,7 +182,7 @@ def display_file(file_content, file_name):
             x = data[:,2],
             y = data[:,3],
             mode = 'markers',
-            marker = {'size': 2, 'color':'black'}
+            marker = {'size': 5, 'color':'black'}
         )
 
         yz_fit = go.Scatter(
@@ -202,7 +202,7 @@ def display_file(file_content, file_name):
             x = data[:,1],
             y = data[:,3],
             mode = 'markers',
-            marker = {'size': 2, 'color':'black'}
+            marker = {'size': 5, 'color':'black'}
         )
 
         xz_fit = go.Scatter(
@@ -215,37 +215,143 @@ def display_file(file_content, file_name):
             line = {'width':2, 'color':'red'}
         )
 
-        fig = tools.make_subplots(rows=2,cols=2,specs=[[{},{}],
+        xyz_fig = tools.make_subplots(rows=2,cols=2,specs=[[{},{}],
                                                        [{},{'is_3d':True}]])
-        fig.append_trace(xz_org,1,1)
-        fig.append_trace(xz_fit,1,1)
-        fig.append_trace(yz_org,1,2)
-        fig.append_trace(yz_fit,1,2)
-        fig.append_trace(xy_org,2,1)
-        fig.append_trace(xy_fit,2,1)
-        fig.append_trace(xyz_org,2,2)
-        fig.append_trace(xyz_fit,2,2)
-        fig.append_trace(earth_top,2,2)
-        fig.append_trace(earth_bottom,2,2)
+        xyz_fig.append_trace(xz_org,1,1)
+        xyz_fig.append_trace(xz_fit,1,1)
+        xyz_fig.append_trace(yz_org,1,2)
+        xyz_fig.append_trace(yz_fit,1,2)
+        xyz_fig.append_trace(xy_org,2,1)
+        xyz_fig.append_trace(xy_fit,2,1)
+        xyz_fig.append_trace(xyz_org,2,2)
+        xyz_fig.append_trace(xyz_fit,2,2)
+        xyz_fig.append_trace(earth_top,2,2)
+        xyz_fig.append_trace(earth_bottom,2,2)
 
-        fig['layout']['yaxis1'].update(scaleanchor='x',scaleratio=1)
-        fig['layout']['yaxis2'].update(scaleanchor='x2',scaleratio=1)
-        fig['layout']['yaxis3'].update(scaleanchor='x3',scaleratio=1)
-        fig['layout']['xaxis1'].update(title='x')
-        fig['layout']['yaxis1'].update(title='z')
-        fig['layout']['xaxis2'].update(title='y')
-        fig['layout']['yaxis2'].update(title='z')
-        fig['layout']['xaxis3'].update(title='x')
-        fig['layout']['yaxis3'].update(title='y')
+        xyz_fig['layout']['yaxis1'].update(scaleanchor='x',scaleratio=1)
+        xyz_fig['layout']['xaxis2'].update(scaleanchor='x',scaleratio=1)
+        xyz_fig['layout']['yaxis2'].update(scaleanchor='x2',scaleratio=1)
+        xyz_fig['layout']['xaxis3'].update(scaleanchor='x',scaleratio=1)
+        xyz_fig['layout']['yaxis3'].update(scaleanchor='x3',scaleratio=1)
+        
+        xyz_fig['layout']['xaxis1'].update(title='x (km)')
+        xyz_fig['layout']['yaxis1'].update(title='z (km)')
+        xyz_fig['layout']['xaxis2'].update(title='y (km)')
+        xyz_fig['layout']['yaxis2'].update(title='z (km)')
+        xyz_fig['layout']['xaxis3'].update(title='x (km)')
+        xyz_fig['layout']['yaxis3'].update(title='y (km)')
 
-        fig['layout']['scene1']['xaxis'].update(showticklabels=True, showspikes=False)
-        fig['layout']['scene1']['yaxis'].update(showticklabels=True, showspikes=False)
-        fig['layout']['scene1']['zaxis'].update(showticklabels=True, showspikes=False)
+        xyz_fig['layout']['scene1']['xaxis'].update(showticklabels=True, showspikes=False, title='x (km)')
+        xyz_fig['layout']['scene1']['yaxis'].update(showticklabels=True, showspikes=False, title='y (km)')
+        xyz_fig['layout']['scene1']['zaxis'].update(showticklabels=True, showspikes=False, title='z (km)')
         
-        fig['layout'].update(height=700, margin={'t':50})
-        fig['layout']['legend'].update(orientation='h')
+        xyz_fig['layout'].update(height=700, margin={'t':50})
+        xyz_fig['layout']['legend'].update(orientation='h')
         
+        rel_time = data[:,0] - data[0,0]
+
+        xt_org = go.Scatter(
+            name = 'Original Data',
+            legendgroup = 'org',
+            x = rel_time,
+            y = data[:,1],
+            mode = 'markers',
+            marker = {'size': 5, 'color':'black'}
+        )
+
+        xt_fit = go.Scatter(
+            name = 'Fitted Ellipse',
+            legendgroup = 'fit',
+            x = rel_time,
+            y = data[:,1]+res[:,0],
+            mode = 'lines',
+            line = {'width':2, 'color':'red'}
+        )
+
+        yt_org = go.Scatter(
+            name = 'Original Data',
+            legendgroup = 'org',
+            showlegend = False,
+            x = rel_time,
+            y = data[:,2],
+            mode = 'markers',
+            marker = {'size': 5, 'color':'black'}
+        )
+
+        yt_fit = go.Scatter(
+            name = 'Fitted Ellipse',
+            legendgroup = 'fit',
+            showlegend = False,
+            x = rel_time,
+            y = data[:,2]+res[:,1],
+            mode = 'lines',
+            line = {'width':2, 'color':'red'}
+        )
         
+        zt_org = go.Scatter(
+            name = 'Original Data',
+            legendgroup = 'org',
+            showlegend = False,
+            x = rel_time,
+            y = data[:,3],
+            mode = 'markers',
+            marker = {'size': 5, 'color':'black'}
+        )
+
+        zt_fit = go.Scatter(
+            name = 'Fitted Ellipse',
+            legendgroup = 'fit',
+            showlegend = False,
+            x = rel_time,
+            y = data[:,3]+res[:,2],
+            mode = 'lines',
+            line = {'width':2, 'color':'red'}
+        )
+
+        rt_org = go.Scatter(
+            name = 'Original Data',
+            legendgroup = 'org',
+            showlegend = False,
+            x = rel_time,
+            y = (data[:,1]**2+data[:,2]**2+data[:,3]**2)**0.5,
+            mode = 'markers',
+            marker = {'size': 5, 'color':'black'}
+        )
+
+        rt_fit = go.Scatter(
+            name = 'Fitted Ellipse',
+            legendgroup = 'fit',
+            showlegend = False,
+            x = rel_time,
+            y = ((data[:,1]+res[:,0])**2+
+                 (data[:,2]+res[:,1])**2+
+                 (data[:,3]+res[:,2])**2)**0.5,
+            mode = 'lines',
+            line = {'width':2, 'color':'red'}
+        )
+
+        t_fig = tools.make_subplots(rows=4,cols=1,shared_xaxes=True)
+        t_fig.append_trace(xt_org,1,1)
+        t_fig.append_trace(xt_fit,1,1)
+        t_fig.append_trace(yt_org,2,1)
+        t_fig.append_trace(yt_fit,2,1)
+        t_fig.append_trace(zt_org,3,1)
+        t_fig.append_trace(zt_fit,3,1)
+        t_fig.append_trace(rt_org,4,1)
+        t_fig.append_trace(rt_fit,4,1)
+
+        t_fig['layout']['xaxis1'].update(title='t (s)')
+        t_fig['layout']['yaxis1'].update(title='x (km)')
+        t_fig['layout']['xaxis2'].update(title='t (s)')
+        t_fig['layout']['yaxis2'].update(title='y (km)')
+        t_fig['layout']['xaxis3'].update(title='t (s)')
+        t_fig['layout']['yaxis3'].update(title='z (km)')
+        t_fig['layout']['xaxis4'].update(title='t (s)')
+        t_fig['layout']['yaxis4'].update(title='|r| (km)')
+
+        t_fig['layout'].update(height=700, margin={'t':50})
+        t_fig['layout']['legend'].update(orientation='h')
+
         return [
             dcc.Markdown('''File Name: **'''+file_name+'''**'''),
 
@@ -274,7 +380,13 @@ def display_file(file_content, file_name):
             
             html.Details([
                 html.Summary('''XYZ Plots'''),
-                dcc.Graph(id='orbit-plot', figure=fig)],open=True)
+                dcc.Graph(id='xyz-plot', figure=xyz_fig)],
+            open=False),
+
+            html.Details([
+                html.Summary('''Time Plots'''),
+                dcc.Graph(id='t-plot', figure=t_fig)],
+            open=True)
         ]
     else:
         return html.Div('''There was an error processing this file.''')
