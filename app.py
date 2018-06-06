@@ -106,7 +106,7 @@ def display_file(file_content, file_name):
 
     data = parse_file(file_content)
     if (data.shape[0] > 0):
-        data_dict = [{'No.':'{:03d}'.format(i+1), 't':data[i][0], 'x':data[i][1], 'y':data[i][2], 'z':data[i][3]} for i in range(data.shape[0])]
+        data_dict = [{'No.':'{:03d}'.format(i+1), 't (s)':data[i][0], 'x (km)':data[i][1], 'y (km)':data[i][2], 'z (km)':data[i][3]} for i in range(data.shape[0])]
         kep, res = e_fit.determine_kep(data[:,1:])
 
         # Visuals
@@ -228,24 +228,18 @@ def display_file(file_content, file_name):
         xyz_fig.append_trace(earth_top,2,2)
         xyz_fig.append_trace(earth_bottom,2,2)
 
-        xyz_fig['layout']['yaxis1'].update(scaleanchor='x',scaleratio=1)
-        xyz_fig['layout']['xaxis2'].update(scaleanchor='x',scaleratio=1)
-        xyz_fig['layout']['yaxis2'].update(scaleanchor='x2',scaleratio=1)
-        xyz_fig['layout']['xaxis3'].update(scaleanchor='x',scaleratio=1)
-        xyz_fig['layout']['yaxis3'].update(scaleanchor='x3',scaleratio=1)
-        
         xyz_fig['layout']['xaxis1'].update(title='x (km)')
-        xyz_fig['layout']['yaxis1'].update(title='z (km)')
-        xyz_fig['layout']['xaxis2'].update(title='y (km)')
-        xyz_fig['layout']['yaxis2'].update(title='z (km)')
-        xyz_fig['layout']['xaxis3'].update(title='x (km)')
-        xyz_fig['layout']['yaxis3'].update(title='y (km)')
-
+        xyz_fig['layout']['yaxis1'].update(title='z (km)', scaleanchor='x')
+        xyz_fig['layout']['xaxis2'].update(title='y (km)', scaleanchor='x')
+        xyz_fig['layout']['yaxis2'].update(title='z (km)', scaleanchor='x2')
+        xyz_fig['layout']['xaxis3'].update(title='x (km)', scaleanchor='x')
+        xyz_fig['layout']['yaxis3'].update(title='y (km)', scaleanchor='x3')
+        
         xyz_fig['layout']['scene1']['xaxis'].update(showticklabels=True, showspikes=False, title='x (km)')
         xyz_fig['layout']['scene1']['yaxis'].update(showticklabels=True, showspikes=False, title='y (km)')
         xyz_fig['layout']['scene1']['zaxis'].update(showticklabels=True, showspikes=False, title='z (km)')
         
-        xyz_fig['layout'].update(height=700, margin={'t':50})
+        xyz_fig['layout'].update(width=1050, height=700, margin={'t':50})
         xyz_fig['layout']['legend'].update(orientation='h')
         
         rel_time = data[:,0] - data[0,0]
@@ -342,15 +336,28 @@ def display_file(file_content, file_name):
 
         t_fig['layout']['xaxis1'].update(title='t (s)')
         t_fig['layout']['yaxis1'].update(title='x (km)')
-        t_fig['layout']['xaxis2'].update(title='t (s)')
-        t_fig['layout']['yaxis2'].update(title='y (km)')
-        t_fig['layout']['xaxis3'].update(title='t (s)')
-        t_fig['layout']['yaxis3'].update(title='z (km)')
-        t_fig['layout']['xaxis4'].update(title='t (s)')
-        t_fig['layout']['yaxis4'].update(title='|r| (km)')
+        t_fig['layout']['yaxis2'].update(title='y (km)', scaleanchor='y')
+        t_fig['layout']['yaxis3'].update(title='z (km)', scaleanchor='y')
+        t_fig['layout']['yaxis4'].update(title='|r| (km)', scaleanchor='y', scaleratio=100)
 
         t_fig['layout'].update(height=700, margin={'t':50})
         t_fig['layout']['legend'].update(orientation='h')
+
+        res_x = go.Histogram(name='Δx', x=res[:,0])
+        res_y = go.Histogram(name='Δy', x=res[:,1])
+        res_z = go.Histogram(name='Δx', x=res[:,2])
+
+        res_fig = tools.make_subplots(rows=1,cols=3,shared_yaxes=True)
+        res_fig.append_trace(res_x,1,1)
+        res_fig.append_trace(res_y,1,2)
+        res_fig.append_trace(res_z,1,3)
+
+        res_fig['layout']['yaxis1'].update(title='Frequency')
+        res_fig['layout']['xaxis1'].update(title='Δx (km)')
+        res_fig['layout']['xaxis2'].update(title='Δy (km)')
+        res_fig['layout']['xaxis3'].update(title='Δz (km)')
+
+        res_fig['layout'].update(margin={'t':50}, showlegend=False)
 
         return [
             dcc.Markdown('''File Name: **'''+file_name+'''**'''),
@@ -364,19 +371,19 @@ def display_file(file_content, file_name):
                 html.Summary('''Computed Keplerian Elements'''),
                 dt.DataTable(rows=[
                     {'Element':'Semi-major Axis',
-                     'Value'            :str(kep[0][0])},
+                     'Value'            :str(kep[0][0])+' km'},
                     {'Element':'Eccentricity',
                      'Value'            :str(kep[1][0])},
                     {'Element':'Inclination',
-                     'Value'            :str(kep[2][0])},
+                     'Value'            :str(kep[2][0])+' °'},
                     {'Element':'Argument of Periapsis',
-                     'Value'            :str(kep[3][0])},
+                     'Value'            :str(kep[3][0])+' °'},
                     {'Element':'Right Ascension of Ascending Node',
-                     'Value'            :str(kep[4][0])},
+                     'Value'            :str(kep[4][0])+' °'},
                     {'Element':'True Anomaly',
-                     'Value'            :str(kep[5][0])},
+                     'Value'            :str(kep[5][0])+' °'},
                     ],editable=False)
-            ],open=True),
+            ],open=False),
             
             html.Details([
                 html.Summary('''XYZ Plots'''),
@@ -386,6 +393,17 @@ def display_file(file_content, file_name):
             html.Details([
                 html.Summary('''Time Plots'''),
                 dcc.Graph(id='t-plot', figure=t_fig)],
+            open=False),
+
+            html.Details([
+                html.Summary('''Residuals'''),
+                dcc.Graph(id='res-plot', figure=res_fig),
+                dt.DataTable(rows=[
+                    {' ':'Maximum','Δx (km)':np.max(res[:,0]),'Δy (km)':np.max(res[:,1]),'Δz (km)':np.max(res[:,2])},
+                    {' ':'Minimum','Δx (km)':np.min(res[:,0]),'Δy (km)':np.min(res[:,1]),'Δz (km)':np.min(res[:,2])},
+                    {' ':'Average','Δx (km)':np.average(res[:,0]),'Δy (km)':np.average(res[:,1]),'Δz (km)':np.average(res[:,2])},
+                    {' ':'Standard Deviation','Δx (km)':np.std(res[:,0]),'Δy (km)':np.std(res[:,1]),'Δz (km)':np.std(res[:,2])}
+                ], editable=False)],
             open=True)
         ]
     else:
