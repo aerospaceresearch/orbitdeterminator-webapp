@@ -18,6 +18,8 @@ import sys
 import os.path
 
 import orbitdeterminator.kep_determination.ellipse_fit as e_fit
+import orbitdeterminator.util.anom_conv as anom_conv
+import orbitdeterminator.util.teme_to_ecef as teme_to_ecef
 
 app = dash.Dash()
 
@@ -94,6 +96,40 @@ def gen_sphere():
     y = (RADIUS*np.sin(u)*np.sin(v)).flatten()
     z = (RADIUS*np.cos(v)).flatten()
     return x,y,z
+
+def ground_track(kep,time0):
+    a = kep[0]
+    e = kep[1]
+    inc = math.radians(kep[2])
+    t0 = math.radians(kep[3])
+    lan = math.radians(kep[4])
+    tanom = math.radians(kep[5])
+
+    p_x = np.array([math.cos(lan), math.sin(lan), 0])
+    p_y = np.array([-math.sin(lan)*math.cos(inc), math.cos(lan)*math.cos(inc), math.sin(inc)])
+
+    # generate 2000 points on the ellipse
+    theta = np.linspace(t0+tanom,t0+tanom+4*math.pi,2000)
+    radii = a*(1-e**2)/(1+e*np.cos(theta-t0))
+
+    # convert to cartesian
+    x_s = np.multiply(radii,np.cos(theta))
+    y_s = np.multiply(radii,np.sin(theta))
+
+    # convert to 3D
+    mat = np.column_stack((p_x,p_y))
+    coords_3D = np.matmul(mat,[x_s,y_s])
+    print(coords_3D[2][:10])
+
+    ecc = anom_conv.true_to_ecc(theta,e)
+    mean = anom_conv.ecc_to_mean(ecc,e)
+    times = anom_conv.mean_to_t(mean,a)
+    times += time0
+
+    coords_teme = np.column_stack((times,coords_3D[0],coords_3D[1],coords_3D[2]))
+    coords_ecef = teme_to_ecef.conv_to_ECEF(coords_teme)
+
+    return coords_ecef
 
 @app.callback(Output('output-div','children'),
               [Input('file-upload','contents'),
@@ -359,6 +395,10 @@ def display_file(file_content, file_name):
 
         res_fig['layout'].update(margin={'t':50}, showlegend=False)
 
+        coords_ecef = ground_track(kep,data[0][0])
+        track = go.Scattergeo(lon=coords_ecef[:,1],lat=coords_ecef[:,0])
+        track_fig = go.Figure(data=[track])
+
         return [
             dcc.Markdown('''File Name: **'''+file_name+'''**'''),
 
@@ -404,7 +444,12 @@ def display_file(file_content, file_name):
                     {' ':'Average','Δx (km)':np.average(res[:,0]),'Δy (km)':np.average(res[:,1]),'Δz (km)':np.average(res[:,2])},
                     {' ':'Standard Deviation','Δx (km)':np.std(res[:,0]),'Δy (km)':np.std(res[:,1]),'Δz (km)':np.std(res[:,2])}
                 ], editable=False)],
-            open=True)
+            open=True),
+
+            html.Details([
+                html.Summary('''Ground Track'''),
+                dcc.Graph(id='track-plot',figure=track_fig)
+            ])
         ]
     else:
         return html.Div('''There was an error processing this file.''')
