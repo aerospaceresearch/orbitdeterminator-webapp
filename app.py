@@ -22,6 +22,7 @@ import orbitdeterminator.util.anom_conv as anom_conv
 import orbitdeterminator.util.teme_to_ecef as teme_to_ecef
 
 app = dash.Dash()
+app.title = 'Orbit Determinator'
 
 # setup static folder
 STATIC_PATH = os.path.abspath(os.path.join(os.path.dirname(__file__), 'static'))
@@ -50,7 +51,7 @@ app.layout = html.Div(children=[
                 html.A('click to select a file')
             ]),
             multiple=False)),
-    
+
     html.Div(id='output-div',children=[dt.DataTable(rows=[{}])])
 ])
 
@@ -64,30 +65,6 @@ def parse_file(file_content):
     except Exception as e:
         print(e)
         return np.empty((0,4))
-
-def gen_points(kep):
-    a = kep[0]
-    e = kep[1]
-    inc = math.radians(kep[2])
-    t0 = math.radians(kep[3])
-    lan = math.radians(kep[4])
-
-    p_x = np.array([math.cos(lan), math.sin(lan), 0])
-    p_y = np.array([-math.sin(lan)*math.cos(inc), math.cos(lan)*math.cos(inc), math.sin(inc)])
-
-    # generate 1000 points on the ellipse
-    theta = np.linspace(0,2*math.pi,1000)
-    radii = a*(1-e**2)/(1+e*np.cos(theta-t0))
-
-    # convert to cartesian
-    x_s = np.multiply(radii,np.cos(theta))
-    y_s = np.multiply(radii,np.sin(theta))
-
-    # convert to 3D
-    mat = np.column_stack((p_x,p_y))
-    coords_3D = np.matmul(mat,[x_s,y_s])
-
-    return np.transpose(coords_3D)
 
 def gen_sphere():
     RADIUS = 6371
@@ -119,7 +96,6 @@ def ground_track(kep,time0):
     # convert to 3D
     mat = np.column_stack((p_x,p_y))
     coords_3D = np.matmul(mat,[x_s,y_s])
-    print(coords_3D[2][:10])
 
     ecc = anom_conv.true_to_ecc(theta,e)
     mean = anom_conv.ecc_to_mean(ecc,e)
@@ -127,9 +103,9 @@ def ground_track(kep,time0):
     times += time0
 
     coords_teme = np.column_stack((times,coords_3D[0],coords_3D[1],coords_3D[2]))
-    coords_ecef = teme_to_ecef.conv_to_ECEF(coords_teme)
+    coords_ecef = teme_to_ecef.conv_to_ecef(coords_teme)
 
-    return coords_ecef
+    return coords_ecef,times
 
 @app.callback(Output('output-div','children'),
               [Input('file-upload','contents'),
@@ -146,7 +122,7 @@ def display_file(file_content, file_name):
         kep, res = e_fit.determine_kep(data[:,1:])
 
         # Visuals
-        orbit_points = gen_points(kep)
+        orbit_points = data[:,1:]+res
         earth_points = gen_sphere()
 
         xyz_org = go.Scatter3d(
@@ -171,11 +147,22 @@ def display_file(file_content, file_name):
             line = {'width':5, 'color':'red'}
         )
 
+        xyz_cur = go.Scatter3d(
+                name = 'Position at Epoch',
+                legendgroup = 'cur',
+                showlegend = False,
+                x = [orbit_points[0,0]],
+                y = [orbit_points[0,1]],
+                z = [orbit_points[0,2]],
+                mode = 'markers',
+                marker = {'size':3, 'color': 'blue'}
+        )
+
         earth_top = go.Mesh3d(
             x = earth_points[0],
             y = earth_points[1],
             z = earth_points[2],
-            color = 'blue',
+            color = '#1f77b4',
             opacity = 0.5,
             hoverinfo = 'skip',
             showlegend = False
@@ -185,7 +172,7 @@ def display_file(file_content, file_name):
             x = earth_points[0],
             y = earth_points[1],
             z = -earth_points[2],
-            color = 'blue',
+            color = '#1f77b4',
             opacity = 0.5,
             hoverinfo = 'skip',
             showlegend = False
@@ -210,7 +197,17 @@ def display_file(file_content, file_name):
             mode = 'lines',
             line = {'width':2, 'color':'red'}
         )
-        
+
+        xy_cur = go.Scatter(
+            name = 'Position at Epoch',
+            legendgroup = 'cur',
+            showlegend = True,
+            x = [orbit_points[0,0]],
+            y = [orbit_points[0,1]],
+            mode = 'markers',
+            marker = {'size':10, 'color':'blue'}
+        )
+
         yz_org = go.Scatter(
             name = 'Original Data',
             legendgroup = 'org',
@@ -230,7 +227,17 @@ def display_file(file_content, file_name):
             mode = 'lines',
             line = {'width':2, 'color':'red'}
         )
-        
+
+        yz_cur = go.Scatter(
+                name = 'Position at Epoch',
+                legendgroup = 'cur',
+                showlegend = False,
+                x = [orbit_points[0,1]],
+                y = [orbit_points[0,2]],
+                mode = 'markers',
+                marker = {'size':10, 'color':'blue'}
+        )
+
         xz_org = go.Scatter(
             name = 'Original Data',
             legendgroup = 'org',
@@ -251,16 +258,30 @@ def display_file(file_content, file_name):
             line = {'width':2, 'color':'red'}
         )
 
+        xz_cur = go.Scatter(
+                name = 'Position at Epoch',
+                legendgroup = 'cur',
+                showlegend = False,
+                x = [orbit_points[0,0]],
+                y = [orbit_points[0,2]],
+                mode = 'markers',
+                marker = {'size':10, 'color':'blue'}
+        )
+
         xyz_fig = tools.make_subplots(rows=2,cols=2,specs=[[{},{}],
                                                        [{},{'is_3d':True}]])
         xyz_fig.append_trace(xz_org,1,1)
         xyz_fig.append_trace(xz_fit,1,1)
+        xyz_fig.append_trace(xz_cur,1,1)
         xyz_fig.append_trace(yz_org,1,2)
         xyz_fig.append_trace(yz_fit,1,2)
+        xyz_fig.append_trace(yz_cur,1,2)
         xyz_fig.append_trace(xy_org,2,1)
         xyz_fig.append_trace(xy_fit,2,1)
+        xyz_fig.append_trace(xy_cur,2,1)
         xyz_fig.append_trace(xyz_org,2,2)
         xyz_fig.append_trace(xyz_fit,2,2)
+        xyz_fig.append_trace(xyz_cur,2,2)
         xyz_fig.append_trace(earth_top,2,2)
         xyz_fig.append_trace(earth_bottom,2,2)
 
@@ -270,14 +291,14 @@ def display_file(file_content, file_name):
         xyz_fig['layout']['yaxis2'].update(title='z (km)', scaleanchor='x2')
         xyz_fig['layout']['xaxis3'].update(title='x (km)', scaleanchor='x')
         xyz_fig['layout']['yaxis3'].update(title='y (km)', scaleanchor='x3')
-        
+
         xyz_fig['layout']['scene1']['xaxis'].update(showticklabels=True, showspikes=False, title='x (km)')
         xyz_fig['layout']['scene1']['yaxis'].update(showticklabels=True, showspikes=False, title='y (km)')
         xyz_fig['layout']['scene1']['zaxis'].update(showticklabels=True, showspikes=False, title='z (km)')
-        
+
         xyz_fig['layout'].update(width=1050, height=700, margin={'t':50})
         xyz_fig['layout']['legend'].update(orientation='h')
-        
+
         rel_time = data[:,0] - data[0,0]
 
         xt_org = go.Scatter(
@@ -293,9 +314,18 @@ def display_file(file_content, file_name):
             name = 'Fitted Ellipse',
             legendgroup = 'fit',
             x = rel_time,
-            y = data[:,1]+res[:,0],
+            y = orbit_points[:,0],
             mode = 'lines',
             line = {'width':2, 'color':'red'}
+        )
+
+        xt_cur = go.Scatter(
+            name = 'Position at Epoch',
+            legendgroup = 'cur',
+            x = [rel_time[0]],
+            y = [orbit_points[0,0]],
+            mode = 'markers',
+            marker = {'size': 10, 'color':'blue'}
         )
 
         yt_org = go.Scatter(
@@ -313,11 +343,21 @@ def display_file(file_content, file_name):
             legendgroup = 'fit',
             showlegend = False,
             x = rel_time,
-            y = data[:,2]+res[:,1],
+            y = orbit_points[:,1],
             mode = 'lines',
             line = {'width':2, 'color':'red'}
         )
-        
+
+        yt_cur = go.Scatter(
+            name = 'Position at Epoch',
+            legendgroup = 'cur',
+            showlegend = False,
+            x = [rel_time[0]],
+            y = [orbit_points[0,1]],
+            mode = 'markers',
+            marker = {'size': 10, 'color':'blue'}
+        )
+
         zt_org = go.Scatter(
             name = 'Original Data',
             legendgroup = 'org',
@@ -333,9 +373,19 @@ def display_file(file_content, file_name):
             legendgroup = 'fit',
             showlegend = False,
             x = rel_time,
-            y = data[:,3]+res[:,2],
+            y = orbit_points[:,2],
             mode = 'lines',
             line = {'width':2, 'color':'red'}
+        )
+
+        zt_cur = go.Scatter(
+            name = 'Position at Epoch',
+            legendgroup = 'cur',
+            showlegend = False,
+            x = [rel_time[0]],
+            y = [orbit_points[0,2]],
+            mode = 'markers',
+            marker = {'size': 10, 'color':'blue'}
         )
 
         rt_org = go.Scatter(
@@ -353,22 +403,38 @@ def display_file(file_content, file_name):
             legendgroup = 'fit',
             showlegend = False,
             x = rel_time,
-            y = ((data[:,1]+res[:,0])**2+
-                 (data[:,2]+res[:,1])**2+
-                 (data[:,3]+res[:,2])**2)**0.5,
+            y = ((orbit_points[:,0])**2+
+                 (orbit_points[:,1])**2+
+                 (orbit_points[:,2])**2)**0.5,
             mode = 'lines',
             line = {'width':2, 'color':'red'}
+        )
+
+        rt_cur = go.Scatter(
+            name = 'Position at Epoch',
+            legendgroup = 'cur',
+            showlegend = False,
+            x = [rel_time[0]],
+            y = [((orbit_points[0,0])**2+
+                  (orbit_points[0,1])**2+
+                  (orbit_points[0,2])**2)**0.5],
+            mode = 'markers',
+            marker = {'size': 10, 'color':'blue'}
         )
 
         t_fig = tools.make_subplots(rows=4,cols=1,shared_xaxes=True)
         t_fig.append_trace(xt_org,1,1)
         t_fig.append_trace(xt_fit,1,1)
+        t_fig.append_trace(xt_cur,1,1)
         t_fig.append_trace(yt_org,2,1)
         t_fig.append_trace(yt_fit,2,1)
+        t_fig.append_trace(yt_cur,2,1)
         t_fig.append_trace(zt_org,3,1)
         t_fig.append_trace(zt_fit,3,1)
+        t_fig.append_trace(zt_cur,3,1)
         t_fig.append_trace(rt_org,4,1)
         t_fig.append_trace(rt_fit,4,1)
+        t_fig.append_trace(rt_cur,4,1)
 
         t_fig['layout']['xaxis1'].update(title='t (s)')
         t_fig['layout']['yaxis1'].update(title='x (km)')
@@ -376,7 +442,7 @@ def display_file(file_content, file_name):
         t_fig['layout']['yaxis3'].update(title='z (km)', scaleanchor='y')
         t_fig['layout']['yaxis4'].update(title='|r| (km)', scaleanchor='y', scaleratio=100)
 
-        t_fig['layout'].update(height=700, margin={'t':50})
+        t_fig['layout'].update(width=1050, height=700, margin={'t':50})
         t_fig['layout']['legend'].update(orientation='h')
 
         res_x = go.Histogram(name='Δx', x=res[:,0])
@@ -395,9 +461,29 @@ def display_file(file_content, file_name):
 
         res_fig['layout'].update(margin={'t':50}, showlegend=False)
 
-        coords_ecef = ground_track(kep,data[0][0])
-        track = go.Scattergeo(lon=coords_ecef[:,1],lat=coords_ecef[:,0])
-        track_fig = go.Figure(data=[track])
+        coords_ecef,coord_times = ground_track(kep,data[0][0])
+
+        track = go.Scattergeo(
+            name='Ground Trace',
+            lat=coords_ecef[:,0],
+            lon=coords_ecef[:,1],
+            text=coord_times,
+            mode='lines',
+            line = {'color':'red'})
+
+        track_cur = go.Scattergeo(
+            name='Position at Epoch',
+            lat=[coords_ecef[0,0]],
+            lon=[coords_ecef[0,1]],
+            text=coord_times[0],
+            marker = {'size':10, 'color':'blue'}
+        )
+
+        track_fig = go.Figure(data=[track, track_cur])
+        track_fig['layout'].update(height=600, width=1050, margin={'t':50})
+        track_fig['layout']['geo']['lataxis'].update(showgrid=True, dtick=30, gridcolor='#ccc')
+        track_fig['layout']['geo']['lonaxis'].update(showgrid=True, dtick=60, gridcolor='#ccc')
+        track_fig['layout']['legend'].update(orientation='h')
 
         return [
             dcc.Markdown('''File Name: **'''+file_name+'''**'''),
@@ -405,8 +491,8 @@ def display_file(file_content, file_name):
             html.Details([
                     html.Summary('''File Contents'''),
                     dt.DataTable(rows=data_dict,editable=False)
-            ]),
-            
+            ], open=False),
+
             html.Details([
                 html.Summary('''Computed Keplerian Elements'''),
                 dt.DataTable(rows=[
@@ -423,17 +509,22 @@ def display_file(file_content, file_name):
                     {'Element':'True Anomaly',
                      'Value'            :str(kep[5][0])+' °'},
                     ],editable=False)
-            ],open=False),
-            
+            ], open=True),
+
             html.Details([
                 html.Summary('''XYZ Plots'''),
-                dcc.Graph(id='xyz-plot', figure=xyz_fig)],
-            open=False),
+                dcc.Graph(id='xyz-plot', figure=xyz_fig)
+            ], open=True),
+
+            html.Details([
+                html.Summary('''Ground Track'''),
+                dcc.Graph(id='track-plot',figure=track_fig)
+            ], open=True),
 
             html.Details([
                 html.Summary('''Time Plots'''),
-                dcc.Graph(id='t-plot', figure=t_fig)],
-            open=False),
+                dcc.Graph(id='t-plot', figure=t_fig)
+            ], open=True),
 
             html.Details([
                 html.Summary('''Residuals'''),
@@ -443,13 +534,8 @@ def display_file(file_content, file_name):
                     {' ':'Minimum','Δx (km)':np.min(res[:,0]),'Δy (km)':np.min(res[:,1]),'Δz (km)':np.min(res[:,2])},
                     {' ':'Average','Δx (km)':np.average(res[:,0]),'Δy (km)':np.average(res[:,1]),'Δz (km)':np.average(res[:,2])},
                     {' ':'Standard Deviation','Δx (km)':np.std(res[:,0]),'Δy (km)':np.std(res[:,1]),'Δz (km)':np.std(res[:,2])}
-                ], editable=False)],
-            open=True),
-
-            html.Details([
-                html.Summary('''Ground Track'''),
-                dcc.Graph(id='track-plot',figure=track_fig)
-            ])
+                ], editable=False)
+            ], open=True),
         ]
     else:
         return html.Div('''There was an error processing this file.''')
