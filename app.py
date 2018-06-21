@@ -74,7 +74,7 @@ def gen_sphere():
     z = (RADIUS*np.cos(v)).flatten()
     return x,y,z
 
-def ground_track(kep,time0):
+def gen_orbit_points(kep,time0,orbits=1,amount=1000):
     a = kep[0]
     e = kep[1]
     inc = math.radians(kep[2])
@@ -86,7 +86,7 @@ def ground_track(kep,time0):
     p_y = np.array([-math.sin(lan)*math.cos(inc), math.cos(lan)*math.cos(inc), math.sin(inc)])
 
     # generate 2000 points on the ellipse
-    theta = np.linspace(t0+tanom,t0+tanom+4*math.pi,2000)
+    theta = np.linspace(t0+tanom,t0+tanom+2*orbits*math.pi,amount)
     radii = a*(1-e**2)/(1+e*np.cos(theta-t0))
 
     # convert to cartesian
@@ -102,10 +102,13 @@ def ground_track(kep,time0):
     times = anom_conv.mean_to_t(mean,a)
     times += time0
 
-    coords_teme = np.column_stack((times,coords_3D[0],coords_3D[1],coords_3D[2]))
+    return np.column_stack((times,*coords_3D))
+
+def ground_track(kep,time0):
+    coords_teme = gen_orbit_points(kep,time0,2,2000)
     coords_ecef = teme_to_ecef.conv_to_ecef(coords_teme)
 
-    return coords_ecef,times
+    return coords_ecef
 
 @app.callback(Output('output-div','children'),
               [Input('file-upload','contents'),
@@ -120,9 +123,13 @@ def display_file(file_content, file_name):
     if (data.shape[0] > 0):
         data_dict = [{'No.':'{:03d}'.format(i+1), 't (s)':data[i][0], 'x (km)':data[i][1], 'y (km)':data[i][2], 'z (km)':data[i][3]} for i in range(data.shape[0])]
         kep, res = e_fit.determine_kep(data[:,1:])
+        mu = 398600.4405
+        period = 2*np.pi*(kep[0]**3/mu)**0.5
+        no_of_orbits = (data[-1,0] - data[0,0])/period
+        orbit_points = gen_orbit_points(kep,data[0][0],no_of_orbits,1000*no_of_orbits)
 
         # Visuals
-        orbit_points = data[:,1:]+res
+        #orbit_points = data[:,1:]+res
         earth_points = gen_sphere()
 
         xyz_org = go.Scatter3d(
@@ -140,9 +147,9 @@ def display_file(file_content, file_name):
             name = 'Fitted Ellipse',
             legendgroup = 'fit',
             showlegend = False,
-            x = orbit_points[:,0],
-            y = orbit_points[:,1],
-            z = orbit_points[:,2],
+            x = orbit_points[:,1],
+            y = orbit_points[:,2],
+            z = orbit_points[:,3],
             mode = 'lines',
             line = {'width':5, 'color':'red'}
         )
@@ -151,9 +158,9 @@ def display_file(file_content, file_name):
                 name = 'Position at Epoch',
                 legendgroup = 'cur',
                 showlegend = False,
-                x = [orbit_points[0,0]],
-                y = [orbit_points[0,1]],
-                z = [orbit_points[0,2]],
+                x = [orbit_points[0,1]],
+                y = [orbit_points[0,2]],
+                z = [orbit_points[0,3]],
                 mode = 'markers',
                 marker = {'size':3, 'color': 'blue'}
         )
@@ -192,8 +199,8 @@ def display_file(file_content, file_name):
             name = 'Fitted Ellipse',
             legendgroup = 'fit',
             showlegend = True,
-            x = orbit_points[:,0],
-            y = orbit_points[:,1],
+            x = orbit_points[:,1],
+            y = orbit_points[:,2],
             mode = 'lines',
             line = {'width':2, 'color':'red'}
         )
@@ -202,8 +209,8 @@ def display_file(file_content, file_name):
             name = 'Position at Epoch',
             legendgroup = 'cur',
             showlegend = True,
-            x = [orbit_points[0,0]],
-            y = [orbit_points[0,1]],
+            x = [orbit_points[0,1]],
+            y = [orbit_points[0,2]],
             mode = 'markers',
             marker = {'size':10, 'color':'blue'}
         )
@@ -222,8 +229,8 @@ def display_file(file_content, file_name):
             name = 'Fitted Ellipse',
             legendgroup = 'fit',
             showlegend = False,
-            x = orbit_points[:,1],
-            y = orbit_points[:,2],
+            x = orbit_points[:,2],
+            y = orbit_points[:,3],
             mode = 'lines',
             line = {'width':2, 'color':'red'}
         )
@@ -232,8 +239,8 @@ def display_file(file_content, file_name):
                 name = 'Position at Epoch',
                 legendgroup = 'cur',
                 showlegend = False,
-                x = [orbit_points[0,1]],
-                y = [orbit_points[0,2]],
+                x = [orbit_points[0,2]],
+                y = [orbit_points[0,3]],
                 mode = 'markers',
                 marker = {'size':10, 'color':'blue'}
         )
@@ -252,8 +259,8 @@ def display_file(file_content, file_name):
             name = 'Fitted Ellipse',
             legendgroup = 'fit',
             showlegend = False,
-            x = orbit_points[:,0],
-            y = orbit_points[:,2],
+            x = orbit_points[:,1],
+            y = orbit_points[:,3],
             mode = 'lines',
             line = {'width':2, 'color':'red'}
         )
@@ -262,8 +269,8 @@ def display_file(file_content, file_name):
                 name = 'Position at Epoch',
                 legendgroup = 'cur',
                 showlegend = False,
-                x = [orbit_points[0,0]],
-                y = [orbit_points[0,2]],
+                x = [orbit_points[0,1]],
+                y = [orbit_points[0,3]],
                 mode = 'markers',
                 marker = {'size':10, 'color':'blue'}
         )
@@ -300,6 +307,7 @@ def display_file(file_content, file_name):
         xyz_fig['layout']['legend'].update(orientation='h')
 
         rel_time = data[:,0] - data[0,0]
+        op_rel_time = orbit_points[:,0] - orbit_points[0,0]
 
         xt_org = go.Scatter(
             name = 'Original Data',
@@ -313,8 +321,8 @@ def display_file(file_content, file_name):
         xt_fit = go.Scatter(
             name = 'Fitted Ellipse',
             legendgroup = 'fit',
-            x = rel_time,
-            y = orbit_points[:,0],
+            x = op_rel_time,
+            y = orbit_points[:,1],
             mode = 'lines',
             line = {'width':2, 'color':'red'}
         )
@@ -322,8 +330,8 @@ def display_file(file_content, file_name):
         xt_cur = go.Scatter(
             name = 'Position at Epoch',
             legendgroup = 'cur',
-            x = [rel_time[0]],
-            y = [orbit_points[0,0]],
+            x = [op_rel_time[0]],
+            y = [orbit_points[0,1]],
             mode = 'markers',
             marker = {'size': 10, 'color':'blue'}
         )
@@ -342,8 +350,8 @@ def display_file(file_content, file_name):
             name = 'Fitted Ellipse',
             legendgroup = 'fit',
             showlegend = False,
-            x = rel_time,
-            y = orbit_points[:,1],
+            x = op_rel_time,
+            y = orbit_points[:,2],
             mode = 'lines',
             line = {'width':2, 'color':'red'}
         )
@@ -352,8 +360,8 @@ def display_file(file_content, file_name):
             name = 'Position at Epoch',
             legendgroup = 'cur',
             showlegend = False,
-            x = [rel_time[0]],
-            y = [orbit_points[0,1]],
+            x = [op_rel_time[0]],
+            y = [orbit_points[0,2]],
             mode = 'markers',
             marker = {'size': 10, 'color':'blue'}
         )
@@ -372,8 +380,8 @@ def display_file(file_content, file_name):
             name = 'Fitted Ellipse',
             legendgroup = 'fit',
             showlegend = False,
-            x = rel_time,
-            y = orbit_points[:,2],
+            x = op_rel_time,
+            y = orbit_points[:,3],
             mode = 'lines',
             line = {'width':2, 'color':'red'}
         )
@@ -382,8 +390,8 @@ def display_file(file_content, file_name):
             name = 'Position at Epoch',
             legendgroup = 'cur',
             showlegend = False,
-            x = [rel_time[0]],
-            y = [orbit_points[0,2]],
+            x = [op_rel_time[0]],
+            y = [orbit_points[0,3]],
             mode = 'markers',
             marker = {'size': 10, 'color':'blue'}
         )
@@ -402,10 +410,10 @@ def display_file(file_content, file_name):
             name = 'Fitted Ellipse',
             legendgroup = 'fit',
             showlegend = False,
-            x = rel_time,
-            y = ((orbit_points[:,0])**2+
-                 (orbit_points[:,1])**2+
-                 (orbit_points[:,2])**2)**0.5,
+            x = op_rel_time,
+            y = ((orbit_points[:,1])**2+
+                 (orbit_points[:,2])**2+
+                 (orbit_points[:,3])**2)**0.5,
             mode = 'lines',
             line = {'width':2, 'color':'red'}
         )
@@ -414,10 +422,10 @@ def display_file(file_content, file_name):
             name = 'Position at Epoch',
             legendgroup = 'cur',
             showlegend = False,
-            x = [rel_time[0]],
-            y = [((orbit_points[0,0])**2+
-                  (orbit_points[0,1])**2+
-                  (orbit_points[0,2])**2)**0.5],
+            x = [op_rel_time[0]],
+            y = [((orbit_points[0,1])**2+
+                  (orbit_points[0,2])**2+
+                  (orbit_points[0,3])**2)**0.5],
             mode = 'markers',
             marker = {'size': 10, 'color':'blue'}
         )
@@ -461,21 +469,21 @@ def display_file(file_content, file_name):
 
         res_fig['layout'].update(margin={'t':50}, showlegend=False)
 
-        coords_ecef,coord_times = ground_track(kep,data[0][0])
+        coords_ecef = ground_track(kep,data[0][0])
 
         track = go.Scattergeo(
             name='Ground Trace',
-            lat=coords_ecef[:,0],
-            lon=coords_ecef[:,1],
-            text=coord_times,
+            lat=coords_ecef[:,1],
+            lon=coords_ecef[:,2],
+            text=coords_ecef[:,0],
             mode='lines',
             line = {'color':'red'})
 
         track_cur = go.Scattergeo(
             name='Position at Epoch',
-            lat=[coords_ecef[0,0]],
-            lon=[coords_ecef[0,1]],
-            text=coord_times[0],
+            lat=[coords_ecef[0,1]],
+            lon=[coords_ecef[0,2]],
+            text=coords_ecef[0,0],
             marker = {'size':10, 'color':'blue'}
         )
 
