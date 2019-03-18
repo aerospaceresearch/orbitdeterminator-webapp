@@ -1,3 +1,5 @@
+# -*- coding: utf-8 -*-
+
 import dash
 import dash_core_components as dcc
 import dash_html_components as html
@@ -41,8 +43,23 @@ app.layout = html.Div(children=[
 
     html.Div('''
         Orbit Determinator: A python package to predict satellite orbits.''',id='subtitle'),
+    html.Div(['''
+        Choose appropriate unit of length according to the unit used in your .csv file-'''], style={'fontSize': 18,'marginBottom':7},id='unit-selection'),
 
-    html.Div('''Upload a csv file below'''),
+    dcc.Dropdown(
+        id='my-dropdown',
+        options=[
+            {'label': 'Kilometre(km)', 'value': '(km)'},
+            {'label': 'Metre(m)', 'value': '(m)'},
+
+        ],
+        value='(km)'
+    ),
+
+    html.Div(id='output-container'),
+
+
+    html.Div(['''Upload a csv file below:'''], style={'fontSize': 20,'marginBottom': 10, 'marginTop': 30}),
 
     html.Div(id='upload-box',
         children=dcc.Upload(id='file-upload',
@@ -54,6 +71,21 @@ app.layout = html.Div(children=[
 
     html.Div(id='output-div',children=[dt.DataTable(rows=[{}])])
 ])
+
+
+
+@app.callback(
+    dash.dependencies.Output('output-container', 'children'),
+    [dash.dependencies.Input('my-dropdown', 'value')])
+
+
+def update_output(value):
+
+    return '- You have selected "{}" as unit of length.'.format(value)
+
+
+
+
 
 def parse_file(file_content):
     try:
@@ -109,16 +141,17 @@ def ground_track(kep,time0):
 
 @app.callback(Output('output-div','children'),
               [Input('file-upload','contents'),
-               Input('file-upload','filename')])
+               Input('file-upload','filename'),
+               Input('my-dropdown', 'value')])
 
-def display_file(file_content, file_name):
+def display_file(file_content, file_name, dropdown_value):
 
     if file_content is None:
         return html.Div(['Choose a file to process it.'])
 
     data = parse_file(file_content)
     if (data.shape[0] > 0):
-        data_dict = [{'No.':'{:03d}'.format(i+1), 't (s)':data[i][0], 'x (km)':data[i][1], 'y (km)':data[i][2], 'z (km)':data[i][3]} for i in range(data.shape[0])]
+        data_dict = [{'No.':'{:03d}'.format(i+1), 't (s)':data[i][0], 'x '+'{}'.format(dropdown_value):data[i][1], 'y '+'{}'.format(dropdown_value):data[i][2], 'z '+'{}'.format(dropdown_value):data[i][3]} for i in range(data.shape[0])]
         kep, res = e_fit.determine_kep(data[:,1:])
 
         # Visuals
@@ -285,16 +318,16 @@ def display_file(file_content, file_name):
         xyz_fig.append_trace(earth_top,2,2)
         xyz_fig.append_trace(earth_bottom,2,2)
 
-        xyz_fig['layout']['xaxis1'].update(title='x (km)')
-        xyz_fig['layout']['yaxis1'].update(title='z (km)', scaleanchor='x')
-        xyz_fig['layout']['xaxis2'].update(title='y (km)', scaleanchor='x')
-        xyz_fig['layout']['yaxis2'].update(title='z (km)', scaleanchor='x2')
-        xyz_fig['layout']['xaxis3'].update(title='x (km)', scaleanchor='x')
-        xyz_fig['layout']['yaxis3'].update(title='y (km)', scaleanchor='x3')
+        xyz_fig['layout']['xaxis1'].update(title='x '+'{}'.format(dropdown_value))
+        xyz_fig['layout']['yaxis1'].update(title='z '+'{}'.format(dropdown_value), scaleanchor='x')
+        xyz_fig['layout']['xaxis2'].update(title='y '+'{}'.format(dropdown_value), scaleanchor='x')
+        xyz_fig['layout']['yaxis2'].update(title='z '+'{}'.format(dropdown_value), scaleanchor='x2')
+        xyz_fig['layout']['xaxis3'].update(title='x '+'{}'.format(dropdown_value), scaleanchor='x')
+        xyz_fig['layout']['yaxis3'].update(title='y '+'{}'.format(dropdown_value), scaleanchor='x3')
 
-        xyz_fig['layout']['scene1']['xaxis'].update(showticklabels=True, showspikes=False, title='x (km)')
-        xyz_fig['layout']['scene1']['yaxis'].update(showticklabels=True, showspikes=False, title='y (km)')
-        xyz_fig['layout']['scene1']['zaxis'].update(showticklabels=True, showspikes=False, title='z (km)')
+        xyz_fig['layout']['scene1']['xaxis'].update(showticklabels=True, showspikes=False, title='x '+'{}'.format(dropdown_value))
+        xyz_fig['layout']['scene1']['yaxis'].update(showticklabels=True, showspikes=False, title='y '+'{}'.format(dropdown_value))
+        xyz_fig['layout']['scene1']['zaxis'].update(showticklabels=True, showspikes=False, title='z '+'{}'.format(dropdown_value))
 
         xyz_fig['layout'].update(width=1050, height=700, margin={'t':50})
         xyz_fig['layout']['legend'].update(orientation='h')
@@ -437,10 +470,10 @@ def display_file(file_content, file_name):
         t_fig.append_trace(rt_cur,4,1)
 
         t_fig['layout']['xaxis1'].update(title='t (s)')
-        t_fig['layout']['yaxis1'].update(title='x (km)')
-        t_fig['layout']['yaxis2'].update(title='y (km)', scaleanchor='y')
-        t_fig['layout']['yaxis3'].update(title='z (km)', scaleanchor='y')
-        t_fig['layout']['yaxis4'].update(title='|r| (km)', scaleanchor='y', scaleratio=100)
+        t_fig['layout']['yaxis1'].update(title='x '+'{}'.format(dropdown_value))
+        t_fig['layout']['yaxis2'].update(title='y '+'{}'.format(dropdown_value), scaleanchor='y')
+        t_fig['layout']['yaxis3'].update(title='z '+'{}'.format(dropdown_value), scaleanchor='y')
+        t_fig['layout']['yaxis4'].update(title='|r| '+'{}'.format(dropdown_value), scaleanchor='y', scaleratio=100)
 
         t_fig['layout'].update(width=1050, height=700, margin={'t':50})
         t_fig['layout']['legend'].update(orientation='h')
@@ -455,9 +488,9 @@ def display_file(file_content, file_name):
         res_fig.append_trace(res_z,1,3)
 
         res_fig['layout']['yaxis1'].update(title='Frequency')
-        res_fig['layout']['xaxis1'].update(title='Δx (km)')
-        res_fig['layout']['xaxis2'].update(title='Δy (km)')
-        res_fig['layout']['xaxis3'].update(title='Δz (km)')
+        res_fig['layout']['xaxis1'].update(title='Δx '+'{}'.format(dropdown_value))
+        res_fig['layout']['xaxis2'].update(title='Δy '+'{}'.format(dropdown_value))
+        res_fig['layout']['xaxis3'].update(title='Δz '+'{}'.format(dropdown_value))
 
         res_fig['layout'].update(margin={'t':50}, showlegend=False)
 
@@ -497,7 +530,7 @@ def display_file(file_content, file_name):
                 html.Summary('''Computed Keplerian Elements'''),
                 dt.DataTable(rows=[
                     {'Element':'Semi-major Axis',
-                     'Value'            :str(kep[0][0])+' km'},
+                     'Value'            :str(kep[0][0])+'{}'.format(dropdown_value)},
                     {'Element':'Eccentricity',
                      'Value'            :str(kep[1][0])},
                     {'Element':'Inclination',
@@ -510,6 +543,7 @@ def display_file(file_content, file_name):
                      'Value'            :str(kep[5][0])+' °'},
                     ],editable=False)
             ], open=True),
+
 
             html.Details([
                 html.Summary('''XYZ Plots'''),
@@ -530,15 +564,15 @@ def display_file(file_content, file_name):
                 html.Summary('''Residuals'''),
                 dcc.Graph(id='res-plot', figure=res_fig),
                 dt.DataTable(rows=[
-                    {' ':'Maximum','Δx (km)':np.max(res[:,0]),'Δy (km)':np.max(res[:,1]),'Δz (km)':np.max(res[:,2])},
-                    {' ':'Minimum','Δx (km)':np.min(res[:,0]),'Δy (km)':np.min(res[:,1]),'Δz (km)':np.min(res[:,2])},
-                    {' ':'Average','Δx (km)':np.average(res[:,0]),'Δy (km)':np.average(res[:,1]),'Δz (km)':np.average(res[:,2])},
-                    {' ':'Standard Deviation','Δx (km)':np.std(res[:,0]),'Δy (km)':np.std(res[:,1]),'Δz (km)':np.std(res[:,2])}
+                    {' ':'Maximum','Δx '+'{}'.format(dropdown_value):np.max(res[:,0]),'Δy '+'{}'.format(dropdown_value):np.max(res[:,1]),'Δz '+'{}'.format(dropdown_value):np.max(res[:,2])},
+                    {' ':'Minimum','Δx '+'{}'.format(dropdown_value):np.min(res[:,0]),'Δy '+'{}'.format(dropdown_value):np.min(res[:,1]),'Δz '+'{}'.format(dropdown_value):np.min(res[:,2])},
+                    {' ':'Average','Δx '+'{}'.format(dropdown_value):np.average(res[:,0]),'Δy '+'{}'.format(dropdown_value):np.average(res[:,1]),'Δz '+'{}'.format(dropdown_value):np.average(res[:,2])},
+                    {' ':'Standard Deviation','Δx '+'{}'.format(dropdown_value):np.std(res[:,0]),'Δy '+'{}'.format(dropdown_value):np.std(res[:,1]),'Δz '+'{}'.format(dropdown_value):np.std(res[:,2])}
                 ], editable=False)
             ], open=True),
         ]
     else:
-        return html.Div('''There was an error processing this file.''')
+        return html.Div(children=[html.Div('''There was an error processing this file.Try uploading another file in required format.''')])
 
 if __name__ == '__main__':
     app.run_server(debug=True)

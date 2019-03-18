@@ -15,6 +15,10 @@ cd orbitdeterminator-webapp
 Install OrbitDeterminator
 ```
 pip install git+https://github.com/aerospaceresearch/orbitdeterminator
+installation guide for orbitdeterminator-https://github.com/aerospaceresearch/orbitdeterminator/blob/master/README.md
+if you are using ubuntu, install python3-tk using: sudo apt-get install python3-tk
+if you are still getting an error explicitly mention python3 instead of python wherever required during installation
+if your system doesn't have python3 then first install python3
 ```
 Install other requirements
 ```
