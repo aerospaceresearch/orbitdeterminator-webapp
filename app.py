@@ -58,7 +58,7 @@ app.layout = html.Div(children=[
     html.Div('''
         Orbit Determinator: A python package to predict satellite orbits.''',id='subtitle'),
     html.Div(['''
-        Choose appropriate units according to .csv file you are going to upload:'''], style={'fontSize': 18,'marginBottom':7},id='unit-selection'),
+        Choose appropriate unit according to .csv file you are going to upload:'''], style={'fontSize': 18,'marginBottom':7},id='unit-selection'),
 
         html.Div(
           dcc.Dropdown(
@@ -113,7 +113,7 @@ html.Div([''' ''']),
         id='my-dropdown3',
         options=[
             {'label': 'Ellipse Fit', 'value': '(ef)'},
-            #{'label': 'Gibbs Method', 'value': '(gm)'},
+            {'label': 'Gibbs Method', 'value': '(gm)'},
             {'label': 'Cubic Spline Interpolation', 'value': '(in)'},
             {'label': 'Lamberts Kalman', 'value': '(lk)'}
 
@@ -130,10 +130,10 @@ html.Div([''' ''']),
     html.Div([''' '''],style={'display': 'inline-block'}),
     html.Div([''' ''']),
 
-    html.Div(['''
-       Input data-- Filter-- Method for keplerian determination-- Orbit of the satellite'''], style={'fontSize': 26,'marginBottom':7,'display': 'inline-block','marginLeft':470},id='filter-selection'),
+    #html.Div(['''
+    #   Input data-- Filter-- Method for keplerian determination-- Orbit of the satellite'''], style={'fontSize': 26,'marginBottom':7,'display': 'inline-block','marginLeft':470},id='filter-selection'),
 
-    html.Div([''' ''']),
+    #html.Div([''' ''']),
 
 
     html.Div(id='output-container',style={'fontSize': 0,'marginBottom':15}),
@@ -274,8 +274,13 @@ def display_file(file_content, file_name, dropdown_value,dropdown_value_2,dropdo
             kep, res = e_fit.determine_kep(data[:,1:])
 
 
-        #elif('{}'.format(dropdown_value_3)=='(gm)'):
-            #varchar=1
+        elif('{}'.format(dropdown_value_3)=='(gm)'):
+                # Apply gibbs method
+                kep_gibbs = gibbsMethod.gibbs_get_kep(data[:,1:])
+                kep_final_gibbs = lamberts_kalman.kalman(kep_gibbs, 0.01 ** 2)
+                kep_final_gibbs = np.transpose(kep_final_gibbs)
+                kep = np.resize(kep_final_gibbs, ((7, 1)))
+             
 
 
         elif('{}'.format(dropdown_value_3)=='(in)'):
@@ -284,6 +289,10 @@ def display_file(file_content, file_name, dropdown_value,dropdown_value_2,dropdo
                 # Apply Kalman filters, estimate of measurement variance R = 0.01 ** 2
                 kep_final_inter = lamberts_kalman.kalman(kep_inter, 0.01 ** 2)
                 kep = np.transpose(kep_final_inter)
+                kep = np.resize(kep, ((7, 1)))
+                
+
+
 
 
         elif('{}'.format(dropdown_value_3)=='(lk)'):
@@ -292,6 +301,8 @@ def display_file(file_content, file_name, dropdown_value,dropdown_value_2,dropdo
                 # Apply Kalman filters, estimate of measurement variance R = 0.01 ** 2
                 kep_final_lamb = lamberts_kalman.kalman(kep_lamb, 0.01 ** 2)
                 kep = np.transpose(kep_final_lamb)
+                kep = np.resize(kep, ((7, 1)))
+             
 
 
         # Visuals
