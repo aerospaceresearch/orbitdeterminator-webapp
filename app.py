@@ -22,6 +22,20 @@ import os.path
 import orbitdeterminator.kep_determination.ellipse_fit as e_fit
 import orbitdeterminator.util.anom_conv as anom_conv
 import orbitdeterminator.util.teme_to_ecef as teme_to_ecef
+import orbitdeterminator.util.read_data
+import orbitdeterminator.util.kep_state
+import orbitdeterminator.util.rkf78
+import orbitdeterminator.util.golay_window as golay_window
+import orbitdeterminator.filters.sav_golay as sav_golay
+import orbitdeterminator.filters.triple_moving_average as triple_moving_average
+import orbitdeterminator.kep_determination.lamberts_kalman as lamberts_kalman
+import orbitdeterminator.kep_determination.interpolation as interpolation
+import orbitdeterminator.kep_determination.gibbsMethod as gibbsMethod
+import argparse
+import matplotlib as mpl
+import matplotlib.pylab as plt
+
+
 
 app = dash.Dash()
 app.title = 'Orbit Determinator'
@@ -44,22 +58,88 @@ app.layout = html.Div(children=[
     html.Div('''
         Orbit Determinator: A python package to predict satellite orbits.''',id='subtitle'),
     html.Div(['''
-        Choose appropriate unit of length according to the unit used in your .csv file-'''], style={'fontSize': 18,'marginBottom':7},id='unit-selection'),
+        Choose appropriate unit according to .csv file you are going to upload:'''], style={'fontSize': 18,'marginBottom':7},id='unit-selection'),
 
-    dcc.Dropdown(
+        html.Div(
+          dcc.Dropdown(
         id='my-dropdown',
         options=[
-            {'label': 'Kilometre(km)', 'value': '(km)'},
-            {'label': 'Metre(m)', 'value': '(m)'},
+            {'label': 'Kilometers(km)', 'value': '(km)'},
+            {'label': 'Metres(m)', 'value': '(m)'},
 
         ],
         value='(km)'
-    ),
+    )
 
-    html.Div(id='output-container'),
+     ,style={'width': 250, 'display': 'inline-block'}),
 
 
-    html.Div(['''Upload a csv file below:'''], style={'fontSize': 20,'marginBottom': 10, 'marginTop': 30}),
+
+
+html.Div([''' ''']),
+html.Div([''' '''],style={'display': 'inline-block'}),
+html.Div([''' ''']),
+
+
+
+
+
+
+
+
+    html.Div(['''
+       Select filter(for pre-processing):'''], style={'fontSize': 22,'marginBottom':7,'display': 'inline-block'},id='filter-selection'),
+    html.Div(['''
+       Select method for keplerian determination:'''], style={'fontSize': 22,'marginBottom':7,'display': 'inline-block','marginLeft':97},id='filter-selection'),
+    html.Div([''' ''']),
+
+    html.Div(
+     dcc.Dropdown(
+        id='my-dropdown2',
+        options=[
+            {'label': 'Savintzky Golay', 'value': '(sg)'},
+            {'label': 'Triple moving average', 'value': '(tma)'},
+            {'label': 'Both', 'value': '(bo)'},
+            {'label': 'None', 'value': '(nf)'},
+
+        ],
+        value='(sg)'
+    )
+    ,style={'width': 250, 'display': 'inline-block'}),
+
+
+    html.Div(
+          dcc.Dropdown(
+        id='my-dropdown3',
+        options=[
+            {'label': 'Ellipse Fit', 'value': '(ef)'},
+            {'label': 'Gibbs Method', 'value': '(gm)'},
+            {'label': 'Cubic Spline Interpolation', 'value': '(in)'},
+            {'label': 'Lamberts Kalman', 'value': '(lk)'}
+
+
+        ],
+        value='(ef)'
+    )
+
+     ,style={'width': 350, 'display': 'inline-block','marginLeft': 132}),
+
+    html.Div([''' ''']),
+    html.Div([''' '''],style={'display': 'inline-block'}),
+    html.Div([''' ''']),
+    html.Div([''' '''],style={'display': 'inline-block'}),
+    html.Div([''' ''']),
+
+    #html.Div(['''
+    #   Input data-- Filter-- Method for keplerian determination-- Orbit of the satellite'''], style={'fontSize': 26,'marginBottom':7,'display': 'inline-block','marginLeft':470},id='filter-selection'),
+
+    #html.Div([''' ''']),
+
+
+    html.Div(id='output-container',style={'fontSize': 0,'marginBottom':15}),
+
+
+    html.Div(['''Upload a csv file below:'''], style={'fontSize': 22,'marginBottom': 10, 'marginTop': 30}),
 
     html.Div(id='upload-box',
         children=dcc.Upload(id='file-upload',
@@ -69,9 +149,13 @@ app.layout = html.Div(children=[
             ]),
             multiple=False)),
 
-    html.Div(id='output-div',children=[dt.DataTable(rows=[{}])])
-])
 
+
+    html.Div(id='output-div',children=[dt.DataTable(rows=[{}])])
+
+
+
+])
 
 
 @app.callback(
@@ -142,17 +226,84 @@ def ground_track(kep,time0):
 @app.callback(Output('output-div','children'),
               [Input('file-upload','contents'),
                Input('file-upload','filename'),
-               Input('my-dropdown', 'value')])
+               Input('my-dropdown', 'value'),
+               Input('my-dropdown2','value'),
+               Input('my-dropdown3','value')])
 
-def display_file(file_content, file_name, dropdown_value):
+def display_file(file_content, file_name, dropdown_value,dropdown_value_2,dropdown_value_3):
 
     if file_content is None:
         return html.Div(['Choose a file to process it.'])
 
-    data = parse_file(file_content)
+    data_ini = parse_file(file_content)
+
+    if('{}'.format(dropdown_value_2)=='(sg)'):
+              window = golay_window.window(10.0, data_ini)
+              # Apply the Savintzky - Golay filter with window = 31 and polynomial parameter = 6
+              data = sav_golay.golay(data_ini, 31, 6)
+              res = data[:, 1:4] - data_ini[:, 1:4]
+
+    elif('{}'.format(dropdown_value_2)=='(tma)'):
+              data = triple_moving_average.generate_filtered_data(data_ini, 3)
+              res = data[:, 1:4] - data_ini[:, 1:4]
+
+    elif('{}'.format(dropdown_value_2)=='(bo)'):
+              data= sav_golay.golay(data_ini, 31, 6)
+              data = triple_moving_average.generate_filtered_data(data, 3)
+              res = data[:, 1:4] - data_ini[:, 1:4]
+
+
+    elif('{}'.format(dropdown_value_2)=='(nf)'):
+              data=data_ini
+              res = data[:, 1:4] - data_ini[:, 1:4]
+
+
+    #else:
+        #data=data_ini
+
+
+
+
+
+
     if (data.shape[0] > 0):
         data_dict = [{'No.':'{:03d}'.format(i+1), 't (s)':data[i][0], 'x '+'{}'.format(dropdown_value):data[i][1], 'y '+'{}'.format(dropdown_value):data[i][2], 'z '+'{}'.format(dropdown_value):data[i][3]} for i in range(data.shape[0])]
-        kep, res = e_fit.determine_kep(data[:,1:])
+
+
+        if('{}'.format(dropdown_value_3)=='(ef)'):
+            kep, res = e_fit.determine_kep(data[:,1:])
+
+
+        elif('{}'.format(dropdown_value_3)=='(gm)'):
+                # Apply gibbs method
+                kep_gibbs = gibbsMethod.gibbs_get_kep(data[:,1:])
+                kep_final_gibbs = lamberts_kalman.kalman(kep_gibbs, 0.01 ** 2)
+                kep_final_gibbs = np.transpose(kep_final_gibbs)
+                kep = np.resize(kep_final_gibbs, ((7, 1)))
+             
+
+
+        elif('{}'.format(dropdown_value_3)=='(in)'):
+                 # Apply the interpolation method
+                kep_inter = interpolation.main(data)
+                # Apply Kalman filters, estimate of measurement variance R = 0.01 ** 2
+                kep_final_inter = lamberts_kalman.kalman(kep_inter, 0.01 ** 2)
+                kep = np.transpose(kep_final_inter)
+                kep = np.resize(kep, ((7, 1)))
+                
+
+
+
+
+        elif('{}'.format(dropdown_value_3)=='(lk)'):
+              # Apply Lambert's solution for the filtered data set
+                kep_lamb = lamberts_kalman.create_kep(data)
+                # Apply Kalman filters, estimate of measurement variance R = 0.01 ** 2
+                kep_final_lamb = lamberts_kalman.kalman(kep_lamb, 0.01 ** 2)
+                kep = np.transpose(kep_final_lamb)
+                kep = np.resize(kep, ((7, 1)))
+             
+
 
         # Visuals
         orbit_points = data[:,1:]+res
