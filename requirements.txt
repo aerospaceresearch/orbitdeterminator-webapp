@@ -13,7 +13,7 @@ Flask-Compress==1.4.0
 idna==2.6
 ipython-genutils==0.2.0
 itsdangerous==0.24
-Jinja2==2.10
+Jinja2==2.10.1
 jsonschema==2.6.0
 jupyter-core==4.4.0
 kiwisolver==1.0.1
@@ -22,13 +22,13 @@ matplotlib==2.2.2
 orbitdeterminator==1.0
 nbformat==4.4.0
 numpy==1.14.3
-plotly==2.7.0
+plotly==3.10.0
 pyparsing==2.2.0
 python-dateutil==2.7.3
 pytz==2018.4
-requests==2.21
+requests==2.22.0
 scipy==1.1.0
 six==1.11.0
 traitlets==4.3.2
-urllib3==1.24.1
+urllib3==1.25.3
 Werkzeug==0.14.1
